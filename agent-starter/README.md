@@ -1,253 +1,194 @@
-<div align="center">
+# AI Document Chat
 
-# agent-starter
+Ask questions about your own PDF, DOCX, TXT and Markdown files. A small FastAPI app retrieves the most relevant passages from a local ChromaDB index and asks an [Ollama](https://ollama.com) model to answer **using only those passages**, with sources.
 
-### One engineering contract for every AI coding agent on your team.
+This repository also follows the [agent-starter](docs/agent-starter-template.md) engineering contract for AI coding agents (see [`AGENTS.md`](AGENTS.md)).
 
-**Claude Code, Codex, Cursor, Kilo Code, Kiro, Windsurf, Copilot. Same rules, same workflow, no shared chat.**
+## Overview
 
-[![CI](https://img.shields.io/github/actions/workflow/status/AhmedSadek60/agent-starter/ai-governance.yml?branch=main&style=flat-square&label=CI)](https://github.com/AhmedSadek60/agent-starter/actions/workflows/ai-governance.yml)
-[![Contract: AGENTS.md](https://img.shields.io/badge/contract-AGENTS.md-5c4ee5?style=flat-square)](AGENTS.md)
-[![Validator: Python 3 stdlib](https://img.shields.io/badge/validator-Python_3_stdlib-3776ab?style=flat-square&logo=python&logoColor=white)](scripts/ai/validate_governance.py)
-[![Vendor neutral](https://img.shields.io/badge/AI_vendor-neutral-2ea44f?style=flat-square)](#why-agent-starter)
+- One service: FastAPI backend + static HTML/CSS/JS chat page.
+- Local LLM through Ollama, local embeddings (`all-MiniLM-L6-v2`), local ChromaDB.
+- Answers cite their sources (document and PDF page). If nothing relevant is found, the app says so instead of guessing.
+- Ships with a Dockerfile and Railway config.
 
-[Quick start](#quick-start) · [Collaboration model](#the-collaboration-model) · [What's inside](#whats-inside) · [Current status](#current-status) · [How it works](#how-it-works) · [FAQ](#faq)
+## Architecture
 
-<code>python scripts/ai/validate_governance.py</code>
-
-<br />
-
-</div>
-
----
-
-Your team uses more than one AI coding agent. Without a shared contract, each
-tool gets its own copy of the rules, the copies drift apart, and the real context
-lives in private chats nobody else can see.
-
-agent-starter is a template for fixing that. It gives every agent one file to
-follow, `AGENTS.md`, and puts everything else the team needs into Git: policies,
-workflows, templates, decisions and task context. It has no application code and
-assumes no language, framework, cloud or AI vendor.
-
-## Just ask your agent
-
-Copy this repo into your project (see [Quick start](#quick-start)), then give any
-agent a task like this:
-
-```text
-Read AGENTS.md, then work on issue 123. Plan first, keep the diff focused, run the
-project's real checks, and report exactly what you verified and what you did not.
 ```
-
-It works the same in Claude Code, Codex, Cursor, Kilo Code, Kiro, Windsurf or
-Copilot, because they all read the same file.
-
-## The collaboration model
-
-<table>
-<tr>
-<td width="33%" valign="top">
-<strong>One contract</strong><br /><br />
-<code>AGENTS.md</code> is the only instruction file, kept to 200 lines. Detail lives in <code>.ai/</code> and <code>docs/</code> and is linked, not copied.
-</td>
-<td width="33%" valign="top">
-<strong>One task, one lane</strong><br /><br />
-One issue, one branch, optionally one worktree, one primary agent per worktree. Agents never share a working directory.
-</td>
-<td width="33%" valign="top">
-<strong>Repository is memory</strong><br /><br />
-Chat history stays local. Decisions, architecture and task context are written to Git and GitHub where the whole team can see them.
-</td>
-</tr>
-</table>
-
-The agent assists, the developer owns the change, and a reviewer is the
-independent gate. agent-starter does not treat AI output as trusted.
-
-## Why agent-starter
-
-|                            |                                                                                                   |
-| -------------------------- | ------------------------------------------------------------------------------------------------- |
-| **Vendor neutral**         | Switch tools, or use all of them at once. The repository policy is the contract, not the tool.    |
-| **No duplicated rules**    | One `AGENTS.md`. Tool-specific files are allowed only as short pointers, and CI enforces it.      |
-| **Safe by default**        | No force pushes, no direct pushes to `main`, no secrets, explicit human approval for risky work.  |
-| **Scales with the repo**   | Add nested `AGENTS.md` files for `backend/`, `frontend/` or `infrastructure/` without bloat.      |
-| **Honest reporting**       | Agents must say what they ran, what they did not run, and mark results verified or not verified. |
-| **Works with legacy code** | Adds alongside what you have. It never re-tools or modernizes code the task does not touch.       |
-
-## Quick start
-
-### Use the template (recommended)
-
-Click **Use this template** on GitHub, or copy the files into an existing
-repository without overwriting anything. Then:
-
-1. Edit `.ai/project.json`: fill in the project and technology fields, and only
-   commands you have actually run. Leave unknown commands as `null`.
-2. Set `"templateMode": false`.
-3. Copy `.github/CODEOWNERS.example` to `.github/CODEOWNERS` with real owners.
-4. Add a security contact to `SECURITY.md`.
-5. Describe the architecture in `docs/architecture/README.md`.
-
-### Check the setup
-
-```bash
-python scripts/ai/validate_governance.py
+Browser (static/)  ->  POST /api/chat  ->  ChatService
+                                              |-- Retriever -> VectorStore (ChromaDB) <- Embedder
+                                              '-- LLMProvider (OllamaProvider) -> Ollama server
 ```
-
-It needs Python 3 and nothing else. It prints readable errors and exits with
-code 1 on a real problem. The same check runs in CI as `validate-governance`,
-with a read-only token. It never runs commands from `project.json`; your
-project's own build and test pipeline stays separate.
-
-### Work in parallel with worktrees
-
-```bash
-git worktree add ../myrepo-123 -b feature/123-auth origin/main   # Dev A, any agent
-git worktree add ../myrepo-124 -b feature/124-api  origin/main   # Dev B, another agent
-git worktree remove ../myrepo-123                                # after the PR is merged
-```
-
-Branches are `feature|fix|refactor|docs|chore/<issue-id>-<short-name>` and
-commits follow Conventional Commits. Details are in
-[`.ai/policies/git.md`](.ai/policies/git.md).
-
-## What's inside
 
 | Path | Purpose |
-| --- | --- |
-| [`AGENTS.md`](AGENTS.md) | The canonical agent contract. |
-| [`.ai/project.json`](.ai/project.json) | Stack and commands for this project. Metadata only, not policy. |
-| [`.ai/policies/`](.ai/policies/) | Security, git, testing, change control, documentation, collaboration. |
-| [`.ai/workflows/`](.ai/workflows/) | Task execution, features, bug fixing, refactoring, code review, incidents. |
-| [`.ai/templates/`](.ai/templates/) | Implementation plan, ADR, handoff, investigation. |
-| [`docs/`](docs/) | `architecture/`, `decisions/` (ADRs), `development/`. |
-| [`scripts/ai/`](scripts/ai/) | The governance validator. |
-| [`.github/`](.github/) | PR template, issue templates (including AI-assisted task), CODEOWNERS example, governance workflow. |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SECURITY.md`](SECURITY.md) | Human and AI contribution flow, vulnerability reporting. |
+|---|---|
+| `app/main.py` | App factory, startup wiring, request-size limit, static files |
+| `app/api/routes.py` | `GET /health`, `POST /api/chat`, error-to-HTTP mapping |
+| `app/services/chat_service.py` | The RAG flow: retrieve, build prompt, call LLM, collect sources |
+| `app/rag/` | Document loading + chunking, embeddings, ChromaDB store, retriever, ingestion |
+| `app/llm/ollama_client.py` | `LLMProvider` protocol and `OllamaProvider` |
+| `app/prompts/rag_prompt.txt` | The grounding prompt |
+| `scripts/ingest_documents.py` | Rebuilds the index from `documents/` |
 
-## Current status
+**How a question is answered:** the question is embedded, the `TOP_K` nearest chunks are fetched from ChromaDB, chunks farther than `MAX_DISTANCE` are dropped, and the rest are placed in the prompt. If no chunk is close enough the LLM is not called and the "not found" message is returned. LangChain is used only for its text splitter; everything else is plain Python to keep the code small.
 
-| Area | State |
-| --- | --- |
-| `AGENTS.md`, policies, workflows, templates | Included. |
-| PR and issue templates, CODEOWNERS example | Included. |
-| Governance validator and CI workflow | Included and passing. |
-| Branch protection, secret scanning, push protection | **Not applied by this repo.** Set them in GitHub, see the checklist below. |
-| Tool-specific adapters (`.cursor/`, `.kiro/`, `.kilo/`) | None by design. Add only when a tool cannot read `AGENTS.md`. |
-| Project commands, architecture, security contact | `TBD` until your team fills them in. |
+## Features
 
-### GitHub settings checklist
+PDF / DOCX / TXT / MD ingestion · configurable chunking and retrieval · source citations · clear error messages · loading state, Enter-to-send, Shift+Enter for newline · request size limits · no login, no external API calls.
 
-These are repository settings that files cannot apply. Set them under
-**Settings** and do not assume they are on.
+## Requirements
 
-- [ ] Default branch is `main`.
-- [ ] Branch protection on `main`: PR required, at least one approval, required
-      check `validate-governance`, no force pushes, no deletion.
-- [ ] Code owner review required, after creating `.github/CODEOWNERS`.
-- [ ] Secret scanning and push protection on.
-- [ ] Dependabot alerts and security updates, if they fit your stack.
-- [ ] Private vulnerability reporting on.
-- [ ] Default workflow token permissions set to read-only.
+- Python 3.11+
+- [Ollama](https://ollama.com/download) (locally, or a reachable remote endpoint)
+- Docker (optional)
 
-## How it works
+## Installation
 
-Every agent follows the same six phases from `AGENTS.md`:
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt      # use requirements.txt for runtime only
+cp .env.example .env
+```
 
-1. **Understand**: read the issue, the code and the applicable `AGENTS.md` files.
-2. **Plan**: classify the task as trivial, standard or high risk. High risk work
-   needs a written plan and a named human approval before anything irreversible.
-3. **Implement**: the smallest safe change, using existing patterns.
-4. **Verify**: run the project's real checks, never assumed ones.
-5. **Review**: read `git diff` and `git status` for scope and secrets.
-6. **Report**: what changed, what was run, what was not, risks and follow-ups.
+The first run downloads the embedding model (~90 MB) from Hugging Face.
 
-Agents stop and ask a human before destructive data operations, production
-changes, real credentials, auth or security-control changes, irreversible
-migrations, force pushes, repository security settings, wider CI permissions,
-bypassing failing checks, or anything outside the task. The full list is in
-`AGENTS.md`.
+## Installing Ollama
 
-### Customizing
+Install it from <https://ollama.com/download> (macOS, Windows, Linux) and make sure it is running (`ollama serve` if it is not started automatically). It listens on `http://localhost:11434`.
 
-| To do this | Do this |
-| --- | --- |
-| Add a project rule | If it applies to every task, add it to `AGENTS.md`. Otherwise add a file under `.ai/policies/` or `.ai/workflows/` and link it. |
-| Add rules for one folder | Add a nested `AGENTS.md`, for example `backend/AGENTS.md`, with only the extra rules for that folder. Never copy the root file. It cannot weaken security or git rules. |
-| Record a decision | Copy `.ai/templates/adr.md` to `docs/decisions/NNNN-short-title.md`, add it to the index, get it reviewed. |
-| Support a tool that ignores `AGENTS.md` | Add a thin pointer (for example `.cursor/rules/`) that is labeled vendor-specific and reviewed like code. The validator rejects adapters over 15 lines. |
+## Pulling an LLM
 
-Changes to `AGENTS.md`, `SECURITY.md`, `CONTRIBUTING.md`, `.ai/policies/` and the
-governance workflow count as governance changes and need review by another
-team member.
+```bash
+ollama pull llama3.1
+```
 
-### Never commit
+Any model works; set `OLLAMA_MODEL` to its name (for example `OLLAMA_MODEL=llama3.2:3b` for a smaller one).
 
-Secrets, API keys, tokens, passwords, certificates, `.env` files, cloud or SSH
-credentials, AI chat transcripts or session dumps, local MCP, IDE or agent
-configuration, private local paths, personal preferences, and customer or
-business data. `.gitignore` covers the common cases.
+## Ingesting documents
 
-## FAQ
+Put your PDF/DOCX/TXT/MD files inside the `documents/` directory and run the ingestion command:
 
-<details>
-<summary><strong>Why not keep a rules file per tool?</strong></summary>
+```
+documents/
+├── company_policy.pdf
+├── employee_handbook.docx
+└── faq.txt
+```
 
-Copies drift and contradict each other, and every change has to be made once per
-tool. One `AGENTS.md` is read natively by Codex, Cursor, Copilot, Kilo Code,
-Windsurf and others, and the rest can be pointed at it.
+```bash
+python scripts/ingest_documents.py
+```
 
-</details>
+This **deletes and rebuilds** the whole index, so it is safe to re-run after adding, changing or removing files. Sample documents about a fictional company are included; delete them and add your own.
 
-<details>
-<summary><strong>My tool does not read AGENTS.md. What do I do?</strong></summary>
+If the index is empty when the app starts and `INGEST_ON_STARTUP=true`, the app ingests `documents/` by itself.
 
-Add a short adapter that points to `AGENTS.md`, for example a one-line
-`CLAUDE.md`. Label it vendor-specific, keep it under 15 lines, and review it
-like code. The validator fails on adapters that copy policy.
+## Starting the application
 
-</details>
+```bash
+uvicorn app.main:app --reload
+```
 
-<details>
-<summary><strong>Can agents merge their own PRs?</strong></summary>
+## Using the chat interface
 
-Not by default. A human reviews and merges, unless a human explicitly tells an
-agent to. AI-generated code is not automatically trusted, and the developer who
-submits a PR is responsible for understanding it.
+Open <http://localhost:8000> and ask, for example, "How many days of annual leave do employees get?".
 
-</details>
+API:
 
-<details>
-<summary><strong>Does it work on a legacy codebase?</strong></summary>
+```bash
+curl localhost:8000/health
+curl -X POST localhost:8000/api/chat -H 'content-type: application/json' \
+     -d '{"message": "What is the vacation policy?"}'
+# {"answer": "...", "sources": [{"document": "employee_handbook.docx", "page": null}]}
+```
 
-Yes. Add the files alongside the existing ones. The rules tell agents not to
-modernize unrelated code, upgrade dependencies because they are old, or replace
-your toolchain.
+`page` is only set for PDFs. Errors return `{"detail": "<readable message>"}` with HTTP 4xx/5xx.
 
-</details>
+## Environment variables
 
-<details>
-<summary><strong>The validator failed. What now?</strong></summary>
+| Variable | Default | Description |
+|---|---|---|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint. **Must be changed in production.** |
+| `OLLAMA_MODEL` | `llama3.1` | Model name as shown by `ollama list` |
+| `OLLAMA_TIMEOUT_SECONDS` | `120` | LLM request timeout |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | sentence-transformers model. Changing it requires re-ingesting |
+| `CHROMA_PERSIST_DIRECTORY` | `./data/chroma` | Where the index is stored |
+| `DOCUMENTS_DIRECTORY` | `./documents` | Source documents |
+| `TOP_K` | `5` | Chunks retrieved per question |
+| `MAX_DISTANCE` | `0.9` | Cosine-distance cutoff; lower is stricter. With the default embedding model, related text scored about 0.4-0.85 and unrelated text 0.93+ on the sample data. Tune for your documents |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` | `1000` / `150` | Characters per chunk / overlap. Re-ingest after changing |
+| `INGEST_ON_STARTUP` | `true` | Build the index at startup when it is empty |
+| `MAX_MESSAGE_CHARS` | `2000` | Maximum question length |
+| `LOG_LEVEL` | `INFO` | Python log level |
+| `PORT` | `8000` | Port to listen on (set automatically by Railway) |
 
-Read the message, it names the file. Common causes: `AGENTS.md` over 200 lines
-(move detail into `.ai/`), a vendor file that does not point to `AGENTS.md`,
-`templateMode` false with the project name still `TBD`, placeholder owners left
-in `CODEOWNERS`, a possible secret (remove it and revoke the credential), or a
-broken relative link.
+## Running the tests
 
-</details>
+```bash
+pytest
+```
 
-## Development
+The tests need neither Ollama nor network access (a fake embedder and fake LLM are used).
 
-Governance changes go through a PR and need another person's review. Run
-`python scripts/ai/validate_governance.py` before you push. See
-[CONTRIBUTING.md](CONTRIBUTING.md).
+## Docker
 
-## Project links
+```bash
+docker build -t document-chat .
+docker run -p 8000:8000 -e OLLAMA_BASE_URL=http://host.docker.internal:11434 document-chat
+```
 
-- [AGENTS.md](AGENTS.md): the agent contract
-- [CONTRIBUTING.md](CONTRIBUTING.md): human and AI contribution workflow
-- [SECURITY.md](SECURITY.md): reporting a vulnerability
-- [Architecture decisions](docs/decisions/README.md)
+`host.docker.internal` reaches Ollama on your machine (on Linux add `--add-host=host.docker.internal:host-gateway`). The container honors `PORT`.
+
+Or run the app and an Ollama container together:
+
+```bash
+docker compose up --build
+docker compose exec ollama ollama pull llama3.1
+```
+
+## Railway Deployment
+
+1. Push this repository to GitHub.
+2. In [Railway](https://railway.com), create a **New Project -> Deploy from GitHub repo** and pick the repository. Railway builds from the `Dockerfile` (configured in `railway.toml`).
+3. In the service **Variables** tab set at least `OLLAMA_BASE_URL` (see next section) and `OLLAMA_MODEL`. Do not set `PORT`; Railway provides it.
+4. Generate a public domain under **Settings -> Networking**.
+5. Deploy. Check **Deployments -> View logs**: you should see `Vector store is empty; ingesting documents` followed by `Indexed N chunks`.
+6. Test:
+   ```bash
+   curl https://<your-domain>/health
+   curl -X POST https://<your-domain>/api/chat -H 'content-type: application/json' \
+        -d '{"message": "What are the office hours?"}'
+   ```
+
+Memory: the image bundles CPU PyTorch and the embedding model, so give the service at least 1 GB of RAM.
+
+**Persistence:** the Railway container filesystem is **ephemeral**; `data/chroma` is lost on every deploy or restart. That is why `INGEST_ON_STARTUP=true` rebuilds the index from the `documents/` folder baked into the image (a few seconds for small collections). To keep an index across restarts you can attach a Railway Volume mounted at `/app/data/chroma`, or later replace `app/rag/vector_store.py` with an external vector database. Documents are part of the repository/image, so adding documents means committing them and redeploying.
+
+## Ollama in Production
+
+**Railway cannot use the Ollama on your laptop**, and `http://localhost:11434` inside the Railway container points at the container itself, where no Ollama runs. Set `OLLAMA_BASE_URL` to an endpoint the service can reach:
+
+- **A second Railway service running the `ollama/ollama` image** in the same project. Use its private address, e.g. `OLLAMA_BASE_URL=http://ollama.railway.internal:11434`, add a volume at `/root/.ollama` so models survive restarts, and pull the model once (`ollama pull llama3.1`, for example from a one-off shell on that service). Railway offers no GPUs, so use a small model (`llama3.2:3b` or similar) and expect slow answers on CPU.
+- **A GPU machine you operate** (cloud VM or home server) running Ollama, exposed over a private network (Tailscale, WireGuard) or behind an authenticating reverse proxy.
+- **A hosted Ollama-compatible service.** Note that this app currently sends no credentials; supporting an API key would be a small addition in `app/llm/ollama_client.py`.
+
+Never expose a bare Ollama port to the public internet: it has no authentication.
+
+## Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| "Unable to connect to the local LLM" | Ollama is not running or `OLLAMA_BASE_URL` is wrong. Check `curl $OLLAMA_BASE_URL/api/tags`. In Docker, `localhost` is the container, not your machine |
+| "The LLM could not produce an answer" | Usually the model is not pulled (`model "x" not found` in the logs). Run `ollama pull <OLLAMA_MODEL>` |
+| "No documents are currently available" / "knowledge base has not been initialized" | `documents/` is empty or the index was never built. Add files and run `python scripts/ingest_documents.py` |
+| Answers say "I couldn't find this information" for things that are in the documents | Raise `MAX_DISTANCE` (e.g. `1.1`) or `TOP_K`; check the file was actually indexed (the ingest output lists each file) |
+| Scanned PDFs return nothing | Only embedded text is extracted; there is no OCR |
+| New documents not showing up | Re-run ingestion (the app only auto-ingests an *empty* index) |
+| Railway deploy fails / restarts | Read the build/deploy logs. Out-of-memory kills need a bigger plan. The health check hits `/health` and allows 300 s for the first start |
+| Port errors | The app must listen on `$PORT`; do not hard-code it in Railway variables |
+| Index disappears after redeploy | Expected: the filesystem is ephemeral (see Railway Deployment) |
+
+## Limitations
+
+- Single-turn Q&A: no conversation history, no streaming, no authentication, no document upload through the UI.
+- Source list shows every retrieved chunk that passed the distance cutoff, so it can include loosely related documents.
+- Answer quality depends on the Ollama model you choose.

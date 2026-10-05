@@ -58,3 +58,10 @@ dist/
 out/
 __pycache__/
 *.pyc
+
+# Python / app runtime
+.venv/
+venv/
+.pytest_cache/
+data/chroma/*
+!data/chroma/.gitkeep
