@@ -27,7 +27,7 @@ class OllamaProvider:
             )
         except httpx.TransportError as exc:
             logger.error("Cannot reach Ollama at %s: %s", self._base_url, exc)
-            raise LLMUnavailableError("Ollama is unreachable") from exc
+            raise LLMUnavailableError() from exc
 
         if response.status_code != 200:
             logger.error(

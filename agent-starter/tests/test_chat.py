@@ -188,3 +188,17 @@ def test_build_llm_selects_provider_and_requires_key() -> None:
     )
     with pytest.raises(RuntimeError, match="TOGETHER_API_KEY"):
         build_llm(Settings(llm_provider="together", together_api_key=None, _env_file=None))
+
+
+def test_ollama_down_shows_friendly_message(monkeypatch) -> None:
+    def boom(*args, **kwargs):
+        raise httpx.ConnectError("refused")
+
+    monkeypatch.setattr(httpx, "post", boom)
+    service = ChatService(FakeRetriever(HITS), OllamaProvider("http://x", "m"), TEMPLATE)
+    response = client_for(service).post("/api/chat", json={"message": "hi"})
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == (
+        "Unable to connect to the local LLM. Please make sure Ollama is running."
+    )
