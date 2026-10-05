@@ -1,26 +1,37 @@
 {
-  "templateMode": true,
+  "templateMode": false,
   "project": {
-    "name": "TBD",
-    "description": "TBD",
-    "type": "TBD"
+    "name": "AI Document Chat",
+    "description": "RAG chat over local documents using an Ollama LLM, ChromaDB and FastAPI",
+    "type": "web application"
   },
   "technology": {
-    "languages": [],
-    "frameworks": [],
-    "buildSystems": [],
-    "packageManagers": []
+    "languages": [
+      "Python",
+      "JavaScript"
+    ],
+    "frameworks": [
+      "FastAPI",
+      "LangChain (text splitters)",
+      "ChromaDB"
+    ],
+    "buildSystems": [
+      "Docker"
+    ],
+    "packageManagers": [
+      "pip"
+    ]
   },
   "commands": {
-    "install": null,
-    "build": null,
-    "test": null,
+    "install": "pip install -r requirements-dev.txt",
+    "build": "docker build -t document-chat .",
+    "test": "pytest",
     "lint": null,
     "format": null,
     "typecheck": null,
-    "verify": null
+    "verify": "pytest && python scripts/ai/validate_governance.py"
   },
   "architecture": {
-    "style": "TBD"
+    "style": "single FastAPI service with static frontend"
   }
 }

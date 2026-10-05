@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI Document Assistant</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header><h1>AI Document Assistant</h1></header>
+    <main id="messages" aria-live="polite">
+      <div class="msg assistant">
+        <div class="bubble">Hi! Ask me anything about the documents in the knowledge base.</div>
+      </div>
+    </main>
+    <form id="form">
+      <textarea id="input" rows="1" placeholder="Type your question..." maxlength="2000" required></textarea>
+      <button id="send" type="submit" aria-label="Send">&#10148;</button>
+    </form>
+    <script src="app.js"></script>
+  </body>
+</html>
