@@ -16,7 +16,7 @@ This repository also follows the [agent-starter](docs/agent-starter-template.md)
 ```
 Browser (static/)  ->  POST /api/chat  ->  ChatService
                                               |-- Retriever -> VectorStore (ChromaDB) <- Embedder
-                                              '-- LLMProvider (OllamaProvider) -> Ollama server
+                                              '-- LLMProvider (Ollama or Together AI)
 ```
 
 | Path | Purpose |
@@ -25,7 +25,7 @@ Browser (static/)  ->  POST /api/chat  ->  ChatService
 | `app/api/routes.py` | `GET /health`, `POST /api/chat`, error-to-HTTP mapping |
 | `app/services/chat_service.py` | The RAG flow: retrieve, build prompt, call LLM, collect sources |
 | `app/rag/` | Document loading + chunking, embeddings, ChromaDB store, retriever, ingestion |
-| `app/llm/ollama_client.py` | `LLMProvider` protocol and `OllamaProvider` |
+| `app/llm/ollama_client.py` | `OllamaProvider`; `app/llm/together_client.py` has `TogetherProvider` |
 | `app/prompts/rag_prompt.txt` | The grounding prompt |
 | `scripts/ingest_documents.py` | Rebuilds the index from `documents/` |
 
@@ -107,7 +107,10 @@ curl -X POST localhost:8000/api/chat -H 'content-type: application/json' \
 
 | Variable | Default | Description |
 |---|---|---|
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint. **Must be changed in production.** |
+| `LLM_PROVIDER` | `ollama` | `ollama` or `together` |
+| `TOGETHER_API_KEY` | _(empty)_ | Together AI API key. Required when `LLM_PROVIDER=together`. Set it as an environment variable only; never commit it |
+| `TOGETHER_MODEL` | `meta-llama/Llama-3.3-70B-Instruct-Turbo-Free` | Together model id. Check Together's current model list; free models change |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint (when `LLM_PROVIDER=ollama`). **Must be changed in production.** |
 | `OLLAMA_MODEL` | `llama3.1` | Model name as shown by `ollama list` |
 | `OLLAMA_TIMEOUT_SECONDS` | `120` | LLM request timeout |
 | `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | sentence-transformers model. Changing it requires re-ingesting |
@@ -149,7 +152,7 @@ docker compose exec ollama ollama pull llama3.1
 
 1. Push this repository to GitHub.
 2. In [Railway](https://railway.com), create a **New Project -> Deploy from GitHub repo** and pick the repository. Railway builds from the `Dockerfile` (configured in `railway.toml`).
-3. In the service **Variables** tab set at least `OLLAMA_BASE_URL` (see next section) and `OLLAMA_MODEL`. Do not set `PORT`; Railway provides it.
+3. In the service **Variables** tab set the LLM variables: either `LLM_PROVIDER=together` + `TOGETHER_API_KEY` + `TOGETHER_MODEL` (simplest, see [Together AI](#together-ai-hosted-llm)), or `OLLAMA_BASE_URL` + `OLLAMA_MODEL` (see next section). Do not set `PORT`; Railway provides it.
 4. Generate a public domain under **Settings -> Networking**.
 5. Deploy. Check **Deployments -> View logs**: you should see `Vector store is empty; ingesting documents` followed by `Indexed N chunks`.
 6. Test:
@@ -162,6 +165,18 @@ docker compose exec ollama ollama pull llama3.1
 Memory: the image bundles CPU PyTorch and the embedding model, so give the service at least 1 GB of RAM.
 
 **Persistence:** the Railway container filesystem is **ephemeral**; `data/chroma` is lost on every deploy or restart. That is why `INGEST_ON_STARTUP=true` rebuilds the index from the `documents/` folder baked into the image (a few seconds for small collections). To keep an index across restarts you can attach a Railway Volume mounted at `/app/data/chroma`, or later replace `app/rag/vector_store.py` with an external vector database. Documents are part of the repository/image, so adding documents means committing them and redeploying.
+
+## Together AI (hosted LLM)
+
+To use a hosted model instead of Ollama (no GPU or Ollama server needed), set:
+
+```
+LLM_PROVIDER=together
+TOGETHER_API_KEY=<your key>
+TOGETHER_MODEL=<model id from https://api.together.ai/models>
+```
+
+Create the key in the Together dashboard (Settings -> API keys). It is a long secret string shown once at creation; the short key *id* is not the key. Put it in Railway **Variables** or your shell environment, not in `.env.example` or any committed file. **Questions and retrieved document passages are sent to Together's API**, so use it only with documents you are allowed to share with that provider.
 
 ## Ollama in Production
 
@@ -177,6 +192,7 @@ Never expose a bare Ollama port to the public internet: it has no authentication
 
 | Symptom | Cause / fix |
 |---|---|
+| "The LLM could not produce an answer" with Together | HTTP 401 in the logs means the API key is wrong; 404 means the model id is not available to your account; 429 means rate limited |
 | "Unable to connect to the local LLM" | Ollama is not running or `OLLAMA_BASE_URL` is wrong. Check `curl $OLLAMA_BASE_URL/api/tags`. In Docker, `localhost` is the container, not your machine |
 | "The LLM could not produce an answer" | Usually the model is not pulled (`model "x" not found` in the logs). Run `ollama pull <OLLAMA_MODEL>` |
 | "No documents are currently available" / "knowledge base has not been initialized" | `documents/` is empty or the index was never built. Add files and run `python scripts/ingest_documents.py` |

@@ -1,6 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -10,6 +12,11 @@ class Settings(BaseSettings):
     """Application settings, loaded from environment variables and `.env`."""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    llm_provider: Literal["ollama", "together"] = "ollama"
+
+    together_api_key: SecretStr | None = None
+    together_model: str = "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"

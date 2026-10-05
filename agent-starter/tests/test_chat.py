@@ -134,3 +134,57 @@ def test_ollama_provider_maps_connection_errors(monkeypatch) -> None:
     monkeypatch.setattr(httpx, "post", boom)
     with pytest.raises(LLMUnavailableError):
         OllamaProvider("http://localhost:11434", "llama3.1").generate("hi")
+
+
+def test_together_provider_sends_auth_and_parses_response(monkeypatch) -> None:
+    from app.llm.together_client import TogetherProvider
+
+    captured = {}
+
+    def fake_post(url, json, headers, timeout):
+        captured.update(url=url, json=json, headers=headers)
+        return httpx.Response(200, json={"choices": [{"message": {"content": " Hi "}}]})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    answer = TogetherProvider("secret-key", "some/model").generate("hello")
+
+    assert answer == "Hi"
+    assert captured["url"] == "https://api.together.xyz/v1/chat/completions"
+    assert captured["headers"]["Authorization"] == "Bearer secret-key"
+    assert captured["json"]["messages"] == [{"role": "user", "content": "hello"}]
+
+
+def test_together_provider_errors_do_not_leak_key(monkeypatch) -> None:
+    from app.llm.base import LLMError
+    from app.llm.together_client import TogetherProvider
+
+    monkeypatch.setattr(
+        httpx, "post", lambda *a, **k: httpx.Response(401, json={"error": "Unauthorized"})
+    )
+    with pytest.raises(LLMError) as info:
+        TogetherProvider("secret-key", "m").generate("x")
+    assert "secret-key" not in str(info.value)
+
+
+def test_together_provider_maps_connection_errors(monkeypatch) -> None:
+    from app.llm.together_client import TogetherProvider
+
+    def boom(*args, **kwargs):
+        raise httpx.ConnectError("refused")
+
+    monkeypatch.setattr(httpx, "post", boom)
+    with pytest.raises(LLMUnavailableError, match="Together AI"):
+        TogetherProvider("k", "m").generate("x")
+
+
+def test_build_llm_selects_provider_and_requires_key() -> None:
+    from app.core.config import Settings
+    from app.llm.together_client import TogetherProvider
+    from app.main import build_llm
+
+    assert isinstance(build_llm(Settings(llm_provider="ollama")), OllamaProvider)
+    assert isinstance(
+        build_llm(Settings(llm_provider="together", together_api_key="k")), TogetherProvider
+    )
+    with pytest.raises(RuntimeError, match="TOGETHER_API_KEY"):
+        build_llm(Settings(llm_provider="together", together_api_key=None, _env_file=None))

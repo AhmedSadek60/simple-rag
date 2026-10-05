@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.llm.ollama_client import LLMError, LLMUnavailableError
+from app.llm.base import LLMError, LLMUnavailableError
 from app.services.chat_service import ChatService, KnowledgeBaseNotReadyError
 
 logger = logging.getLogger(__name__)
@@ -48,10 +48,8 @@ def chat(body: ChatRequest, request: Request) -> ChatResponse:
             if has_documents
             else "No documents are currently available.",
         )
-    except LLMUnavailableError:
-        raise HTTPException(
-            503, "Unable to connect to the local LLM. Please make sure Ollama is running."
-        )
+    except LLMUnavailableError as exc:
+        raise HTTPException(503, str(exc))
     except LLMError:
         raise HTTPException(502, "The LLM could not produce an answer. Check the server logs.")
     except Exception:

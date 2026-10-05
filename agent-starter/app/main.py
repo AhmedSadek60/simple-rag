@@ -9,7 +9,9 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import router
 from app.core.config import BASE_DIR, Settings, get_settings
 from app.core.logging import setup_logging
+from app.llm.base import LLMProvider
 from app.llm.ollama_client import OllamaProvider
+from app.llm.together_client import TogetherProvider
 from app.rag.document_loader import find_documents
 from app.rag.embeddings import Embedder
 from app.rag.ingestion import ingest_documents
@@ -30,7 +32,7 @@ def create_app(settings: Settings | None = None, chat_service: ChatService | Non
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         setup_logging(settings.log_level)
-        logger.info("Starting application (model=%s)", settings.ollama_model)
+        logger.info("Starting application (llm_provider=%s)", settings.llm_provider)
         if chat_service is None:
             _wire_services(app, settings)
         yield
@@ -54,6 +56,20 @@ def create_app(settings: Settings | None = None, chat_service: ChatService | Non
     return app
 
 
+def build_llm(settings: Settings) -> LLMProvider:
+    if settings.llm_provider == "together":
+        if settings.together_api_key is None:
+            raise RuntimeError("LLM_PROVIDER=together requires TOGETHER_API_KEY to be set.")
+        return TogetherProvider(
+            settings.together_api_key.get_secret_value(),
+            settings.together_model,
+            timeout=settings.ollama_timeout_seconds,
+        )
+    return OllamaProvider(
+        settings.ollama_base_url, settings.ollama_model, settings.ollama_timeout_seconds
+    )
+
+
 def _wire_services(app: FastAPI, settings: Settings) -> None:
     Path(settings.chroma_persist_directory).mkdir(parents=True, exist_ok=True)
     store = VectorStore(settings.chroma_persist_directory, Embedder(settings.embedding_model))
@@ -65,9 +81,7 @@ def _wire_services(app: FastAPI, settings: Settings) -> None:
         )
 
     retriever = Retriever(store, settings.top_k, settings.max_distance)
-    llm = OllamaProvider(
-        settings.ollama_base_url, settings.ollama_model, settings.ollama_timeout_seconds
-    )
+    llm = build_llm(settings)
     app.state.chat_service = ChatService(retriever, llm, ChatService.load_prompt())
 
 

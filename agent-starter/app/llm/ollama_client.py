@@ -1,21 +1,9 @@
 import logging
-from typing import Protocol
-
 import httpx
 
+from app.llm.base import LLMError, LLMUnavailableError
+
 logger = logging.getLogger(__name__)
-
-
-class LLMError(Exception):
-    """The LLM returned an error or an unusable response."""
-
-
-class LLMUnavailableError(LLMError):
-    """The LLM endpoint could not be reached."""
-
-
-class LLMProvider(Protocol):
-    def generate(self, prompt: str) -> str: ...
 
 
 class OllamaProvider:

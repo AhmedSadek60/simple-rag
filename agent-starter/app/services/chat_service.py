@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.llm.ollama_client import LLMProvider
+from app.llm.base import LLMProvider
 from app.rag.retriever import Retriever
 
 logger = logging.getLogger(__name__)
