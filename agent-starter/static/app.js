@@ -43,7 +43,10 @@ async function ask(question) {
     const data = await response.json().catch(() => ({}));
     pending.remove();
     if (!response.ok) {
-      const detail = typeof data.detail === "string" ? data.detail : "Something went wrong.";
+      const detail =
+        typeof data.detail === "string"
+          ? data.detail
+          : `The server could not be reached or returned an error (HTTP ${response.status}). Please try again in a moment.`;
       addMessage("assistant", detail, "error");
       return;
     }
